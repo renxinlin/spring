@@ -1,0 +1,6 @@
+阅读顺序:
+1 XmlBeanFactory beanFactory的实例化,加载父类相关属性
+2 通过实例化XmlBeanDefinitionReader 加载资源[]
+3 最终将文件交给DefaultBeanDefinitionDocumentReader.registerBeanDefinitions(Document doc, XmlReaderContext readerContext) 解析生成bd
+   额外话: Resource implements IuputStrearnSource 统一封装了资源 例如file http jar 类路径文件等等
+   资源文件都有相应的 Resource 实现 文件（ FileSystemResource Class path 资源（ ClassPathResource ）等等
