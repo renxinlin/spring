@@ -33,6 +33,7 @@ import static org.junit.Assert.*;
 /**
  * @author Juergen Hoeller
  */
+@SuppressWarnings("all")
 public class SimpleTransactionScopeTests {
 
 	@Test

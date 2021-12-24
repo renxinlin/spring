@@ -16,10 +16,13 @@
 
 package org.springframework.beans.factory.config;
 
+import java.io.OutputStream;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.nio.channels.Channel;
+import java.nio.channels.FileChannel;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -57,7 +60,7 @@ import org.springframework.util.ReflectionUtils;
  * @author Keith Donald
  * @since 1.0.2
  * @see #setSingleton
- * @see #createInstance()
+ * @see 	#createInstance()
  */
 public abstract class AbstractFactoryBean<T>
 		implements FactoryBean<T>, BeanClassLoaderAware, BeanFactoryAware, InitializingBean, DisposableBean {
@@ -110,6 +113,8 @@ public abstract class AbstractFactoryBean<T>
 	 */
 	@Nullable
 	protected BeanFactory getBeanFactory() {
+		FileChannel channel = null;
+		channel.force(0);
 		return this.beanFactory;
 	}
 

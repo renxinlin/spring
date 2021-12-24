@@ -270,9 +270,11 @@ public class ClassPathBeanDefinitionScanner extends ClassPathScanningCandidateCo
 	 */
 	protected Set<BeanDefinitionHolder> doScan(String... basePackages) {
 		Assert.notEmpty(basePackages, "At least one base package must be specified");
+		// 创建一个集合 存放扫描到bd的封装类
 		Set<BeanDefinitionHolder> beanDefinitions = new LinkedHashSet<>();
+		// 遍历扫描包
 		for (String basePackage : basePackages) {
-			// asm实现BD生成 【asm可以直接操作字节码】
+			// asm实现BD生成 【asm可以直接操作字节码】  获取所有符合条件的bd(扫描包下的所有class 转换成bd)
 			Set<BeanDefinition> candidates = findCandidateComponents(basePackage);
 			for (BeanDefinition candidate : candidates) {
 				ScopeMetadata scopeMetadata = this.scopeMetadataResolver.resolveScopeMetadata(candidate);
@@ -282,6 +284,7 @@ public class ClassPathBeanDefinitionScanner extends ClassPathScanningCandidateCo
 					// 设置一些默认的属性 【全局属性】 比如lazy
 					postProcessBeanDefinition((AbstractBeanDefinition) candidate, beanName);
 				}
+				// 如果扫描的是spring的bean 则处理其通用的注解
 				if (candidate instanceof AnnotatedBeanDefinition) {
 					// 设置自定义的注解属性
 					AnnotationConfigUtils.processCommonDefinitionAnnotations((AnnotatedBeanDefinition) candidate);

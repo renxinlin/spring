@@ -263,7 +263,7 @@ public @interface ContextConfiguration {
 	 * DelegatingSmartContextLoader} or
 	 * {@link org.springframework.test.context.web.WebDelegatingSmartContextLoader
 	 * WebDelegatingSmartContextLoader} depending on the absence or presence of
-	 * {@link org.springframework.test.context.web.WebAppConfiguration
+	 * {@link org.springframework.test.context.web.WWebAppConfiguration
 	 * &#064;WebAppConfiguration}. For further details on the default behavior
 	 * of various concrete {@code SmartContextLoaders}, check out the Javadoc for
 	 * {@link org.springframework.test.context.support.AbstractContextLoader AbstractContextLoader},

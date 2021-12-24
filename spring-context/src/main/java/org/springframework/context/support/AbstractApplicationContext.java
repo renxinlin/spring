@@ -547,18 +547,21 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 	public void refresh() throws BeansException, IllegalStateException {
 		synchronized (this.startupShutdownMonitor) {
 			// Prepare this context for refreshing.
+			// 调用容器准备刷新的方法 获取容器的当前时间 同时给容器设置同步标识
 			prepareRefresh();
 
 			// Tell the subclass to refresh the internal bean factory.
 			// 获取beanfactory 也就是DefaultListableBeanFactory
+			// 告诉子类启动refreshBeanFactory BD资源文件的载入从子类的refreshBeanFactory开始 完成了xml bd的加载
 			ConfigurableListableBeanFactory beanFactory = obtainFreshBeanFactory();
 
 			// Prepare the bean factory for use in this context.
-			// 2个beanPostProcesserr
+			// 添加2个beanPostProcesserr到beanFactory
 			prepareBeanFactory(beanFactory);
 
 			try {
-				// 暂无实现,但是允许程序员继承后处理postProcessBeanFactory
+				// 暂无实现,但是允许程序员继承后处理postProcessBeanFactory 一个子类重写扩展点
+				// 比如AnnotationConfigServletWebServerApplicationContext 就是在这里完成了annotatedBeanDefinetionReader对注解bd的注册
 				// Allows post-processing of the bean factory in context subclasses.
 				postProcessBeanFactory(beanFactory);
 				// 注册BeanFactoryPostProcessors并且完成bean和Import等的解析【ConfigurationClassPostProcessor】
@@ -566,7 +569,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 
 				// BeanFactoryPostProcessors核心处理    同时处理一个beanPostProcesserr
 				/**
-				 * 这里有一个非常核心的类 加载所有的BD到容器
+				 * 这里有一个非常核心的类 加载所有的扩展点BD到容器
 				 * 核心流程先是处理BFPP 处理BFPP 通过BFPP调用register|beanFactory 从而完成所有BD的解析生成
 				 *
 				 * 			ConfigurationClassPostProcessor 通过full/lite属性判断是否解析过
@@ -576,7 +579,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 				 * 		    ImportBeanDefinitionRegistrar ImportSelector [其修改BD的本质也是相关BFPP通过解析ImportBeanDefinitionRegistrar提供]
 				 *
 				 *
-				 *
+				 *完成了注解bd的加载
 				 *
 				 *
 				 *
@@ -625,6 +628,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 				finishBeanFactoryInitialization(beanFactory);
 
 				// Last step: publish corresponding event.
+				// 初始化容器的生命周期事件处理器 并发布容器的生命周期事件
 				finishRefresh();
 			}
 

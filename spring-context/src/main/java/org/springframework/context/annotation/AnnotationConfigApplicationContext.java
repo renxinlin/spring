@@ -72,9 +72,9 @@ import org.springframework.util.Assert;
  * @since 3.0
  */
 public class AnnotationConfigApplicationContext extends GenericApplicationContext implements AnnotationConfigRegistry {
-
+	// 保存一个读取注解的bean定义读取器 并将其设置到容器中
 	private final AnnotatedBeanDefinitionReader reader;
-
+	// 保存一个扫描指定类路径中注解bean定义的扫描器 并将其设置到容器中
 	private final ClassPathBeanDefinitionScanner scanner;
 
 
@@ -83,6 +83,8 @@ public class AnnotationConfigApplicationContext extends GenericApplicationContex
 	 * through {@link #register} calls and then manually {@linkplain #refresh refreshed}.
 	 */
 	public AnnotationConfigApplicationContext() {
+		// super(); 父类的构造方法会完成 DefaultListableBeanFactory 的创建
+		// 初始化BD的注解式读取器 和 注解的路径扫描器  需要稍后调用register和refresh完成bean的扫描 解析 注册
 		this.reader = new AnnotatedBeanDefinitionReader(this);
 		this.scanner = new ClassPathBeanDefinitionScanner(this);
 	}
@@ -149,6 +151,7 @@ public class AnnotationConfigApplicationContext extends GenericApplicationContex
 	 * @see ClassPathBeanDefinitionScanner#setBeanNameGenerator
 	 */
 	public void setBeanNameGenerator(BeanNameGenerator beanNameGenerator) {
+		// 为容器的注解bean读取器和注解bean扫描器设置bean名称生产器
 		this.reader.setBeanNameGenerator(beanNameGenerator);
 		this.scanner.setBeanNameGenerator(beanNameGenerator);
 		getBeanFactory().registerSingleton(
@@ -162,6 +165,7 @@ public class AnnotationConfigApplicationContext extends GenericApplicationContex
 	 * and/or {@link #scan(String...)}.
 	 */
 	public void setScopeMetadataResolver(ScopeMetadataResolver scopeMetadataResolver) {
+		// 为BD-reader和scanner设置作用范围元信息解析器
 		this.reader.setScopeMetadataResolver(scopeMetadataResolver);
 		this.scanner.setScopeMetadataResolver(scopeMetadataResolver);
 	}
@@ -183,6 +187,7 @@ public class AnnotationConfigApplicationContext extends GenericApplicationContex
 	 */
 	public void register(Class<?>... annotatedClasses) {
 		Assert.notEmpty(annotatedClasses, "At least one annotated class must be specified");
+		// 注册bd
 		this.reader.register(annotatedClasses);
 	}
 
@@ -197,6 +202,7 @@ public class AnnotationConfigApplicationContext extends GenericApplicationContex
 	 */
 	public void scan(String... basePackages) {
 		Assert.notEmpty(basePackages, "At least one base package must be specified");
+		// 扫描注册bd
 		this.scanner.scan(basePackages);
 	}
 
