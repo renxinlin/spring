@@ -235,7 +235,7 @@ parameter list that each takes.
 | <@spring.formHiddenInput path, attributes/>
 
 | **formPasswordInput** * (standard input field for gathering passwords. Note that no
-  value will ever be populated in fields of this type)
+  value will ever be Rated in fields of this type)
 | <@spring.formPasswordInput path, attributes/>
 
 | **formTextarea** (large text field for gathering long, freeform text input)

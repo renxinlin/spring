@@ -93,7 +93,7 @@ public class ClassPathScanningCandidateComponentProvider implements EnvironmentC
 	protected final Log logger = LogFactory.getLog(getClass());
 
 	private String resourcePattern = DEFAULT_RESOURCE_PATTERN;
-
+	// 保存过滤规则包含的注解 @component @Repository @Service @Controller 等等
 	private final List<TypeFilter> includeFilters = new LinkedList<>();
 
 	private final List<TypeFilter> excludeFilters = new LinkedList<>();
@@ -204,6 +204,7 @@ public class ClassPathScanningCandidateComponentProvider implements EnvironmentC
 	 */
 	@SuppressWarnings("unchecked")
 	protected void registerDefaultFilters() {
+		// 注册扫描规则 @ManagedBean  @Named @Component【Service repository controller 别名都是component】
 		this.includeFilters.add(new AnnotationTypeFilter(Component.class));
 		ClassLoader cl = ClassPathScanningCandidateComponentProvider.class.getClassLoader();
 		try {
@@ -304,6 +305,7 @@ public class ClassPathScanningCandidateComponentProvider implements EnvironmentC
 
 
 	/**
+	 *  扫描指定包下满足相关注解[ @component @Repository @Service @Controller]的类
 	 * Scan the class path for candidate components.
 	 * @param basePackage the package to check for annotated classes
 	 * @return a corresponding Set of autodetected bean definitions

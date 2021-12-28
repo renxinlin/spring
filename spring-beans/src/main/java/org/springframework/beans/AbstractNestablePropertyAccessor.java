@@ -272,9 +272,11 @@ public abstract class AbstractNestablePropertyAccessor extends AbstractPropertyA
 
 	protected void setPropertyValue(PropertyTokenHolder tokens, PropertyValue pv) throws BeansException {
 		if (tokens.keys != null) {
+			// DI 依赖注入
 			processKeyedProperty(tokens, pv);
 		}
 		else {
+			// DI 依赖注入
 			processLocalProperty(tokens, pv);
 		}
 	}

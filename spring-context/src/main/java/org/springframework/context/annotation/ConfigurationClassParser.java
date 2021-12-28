@@ -186,7 +186,7 @@ class ConfigurationClassParser {
 						"Failed to parse configuration class [" + bd.getBeanClassName() + "]", ex);
 			}
 		}
-
+		// 处理剩余待解析的 比如@Import @ImportResource @BeanMethod
 		processDeferredImportSelectors();
 	}
 

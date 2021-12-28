@@ -250,7 +250,14 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 			// Simply call processConfigurationClasses lazily at this point then.
 			processConfigBeanDefinitions((BeanDefinitionRegistry) beanFactory);
 		}
-		// cglib代理处理
+		// cglib代理处理   processConfigBeanDefinitions时为bd设置了full模式还是lite模式 如果是full模式则进行增强
+		// @Component @ComponentScan @Import 只有@Configuration的类会被设置成FULL
+		// 对configuration进行代理的作用是增强@bean注解的处理
+		/*
+			full 模式下 可以处理@bean 之间的依赖关系
+			lite 模式下 无法处理@bean定义的依赖关系
+			参见: https://www.cnblogs.com/Tony100/p/14423334.html
+		 */
 		enhanceConfigurationClasses(beanFactory);
 		beanFactory.addBeanPostProcessor(new ImportAwareBeanPostProcessor(beanFactory));
 	}
@@ -275,7 +282,7 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 
 		for (String beanName : candidateNames) {
 			BeanDefinition beanDef = registry.getBeanDefinition(beanName);
-			// BeanDefinition的configurationClass属性为full或者lite则意味着已经处理过
+			// BeanDefinition的org.springframework.context.annotation.ConfigurationClassPostProcessor.configurationClass属性为full或者lite则意味着已经处理过
 			if (ConfigurationClassUtils.isFullConfigurationClass(beanDef) ||
 					ConfigurationClassUtils.isLiteConfigurationClass(beanDef)) {
 				if (logger.isDebugEnabled()) {
@@ -284,12 +291,14 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 			}
 			// 判断是否是Configuration 类
 			// 如果是则不判断
-			// ComponentScan import importResource Compoment
+			// ComponentScan import importResource Compoment 或者方法上加了bean注解
+			// 如果是的话给bd设置上full或者lite属性
 			else if (ConfigurationClassUtils.checkConfigurationClassCandidate(beanDef, this.metadataReaderFactory)) {
 				configCandidates.add(new BeanDefinitionHolder(beanDef, beanName));
 			}
 		}
 
+		//  configCandidates 包含了  ComponentScan import importResource Compoment  @Configuration @bean方法
 		// Return immediately if no @Configuration classes were found
 		if (configCandidates.isEmpty()) {
 			return;
@@ -342,7 +351,7 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 						registry, this.sourceExtractor, this.resourceLoader, this.environment,
 						this.importBeanNameGenerator, parser.getImportRegistry());
 			}
-			// 将configClasses转换成BD
+			// 将configClasses转换成BD 【包含configuration 普通的bean importresource  importSelector importBeanDefinitionRegister bean method】
 			this.reader.loadBeanDefinitions(configClasses);
 			alreadyParsed.addAll(configClasses);
 
@@ -369,11 +378,7 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 
 
 
-		// ************************************************************************
-		// ************************************************************************
-		// 注意 ConfigurationClassParser只负责解析不负责注册，解析完毕的类在这里被加入IOC
-		// ************************************************************************
-		// ************************************************************************
+		// 一些特殊的bean直接这里进行实例化
 		while (!candidates.isEmpty());
 		// Register the ImportRegistry as a bean in order to support ImportAware @Configuration classes
 		if (sbr != null && !sbr.containsSingleton(IMPORT_REGISTRY_BEAN_NAME)) {

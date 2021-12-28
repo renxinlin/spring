@@ -164,6 +164,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 	protected final Log logger = LogFactory.getLog(getClass());
 
 	/** Unique id for this context, if any */
+	// spring:application:name
 	private String id = ObjectUtils.identityToString(this);
 
 	/** Display name */
@@ -548,6 +549,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 		synchronized (this.startupShutdownMonitor) {
 			// Prepare this context for refreshing.
 			// 调用容器准备刷新的方法 获取容器的当前时间 同时给容器设置同步标识
+			//  加载环境变量 以及配置initPropertySources
 			prepareRefresh();
 
 			// Tell the subclass to refresh the internal bean factory.
@@ -587,6 +589,24 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 				 *
 				 *
 				 * ConfigurationClassPostProcessor[BeanDefinitionRegistryPostProcessor]用来加载configuration component componentscan import importSelector等核心IOC过程
+				 *
+				 *
+				 * 完成bfpp和bdrpp的扩展点调用 先调用bdrpp 后对bfpp进行排序后调用
+				 *
+				 *
+				 *
+				 *
+				 * springboot 启动时
+				 * 0 = {OverrideBeanDefinitionRegistryPostProcessor@5655}
+				 * 1 = {DubboConfigBeanDefinitionConflictProcessor@5656}
+				 * 2 = {SharedMetadataReaderFactoryContextInitializer$CachingMetadataReaderFactoryPostProcessor@5657} 完成org.springframework.context.annotation.internalConfigurationAnnotationProcessor的BD定义
+				 *
+				 * 3 = {ConfigurationWarningsApplicationContextInitializer$ConfigurationWarningsPostProcessor@5658}
+				 * // 完成bean的IOC
+				 * 4 = {ConfigFileApplicationListener$PropertySourceOrderingPostProcessor@5659}
+				 *
+				 *
+				 *
 				 */
 				invokeBeanFactoryPostProcessors(beanFactory);
 				//
@@ -594,6 +614,32 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 
 				// 四个beanPostProcesserr 这些beanPostProcesserr 被建立成一个数组，放置在
 				//	private final List<BeanPostProcessor> beanPostProcessors = new CopyOnWriteArrayList<>(); 用于后续的b实例化处理
+				/*
+				0 = "org.springframework.context.annotation.internalAutowiredAnnotationProcessor"
+				1 = "org.springframework.context.annotation.internalCommonAnnotationProcessor"
+				2 = "org.springframework.context.annotation.internalAsyncAnnotationProcessor"
+				3 = "org.springframework.aop.config.internalAutoProxyCreator"
+				4 = "dubboConfigAliasPostProcessor"
+				5 = "referenceAnnotationBeanPostProcessor"
+				6 = "org.springframework.boot.context.properties.ConfigurationPropertiesBindingPostProcessor"
+				7 = "webServerFactoryCustomizerBeanPostProcessor"
+				8 = "errorPageRegistrarBeanPostProcessor"
+				9 = "methodValidationPostProcessor"
+				10 = "dataSourceInitializerPostProcessor"
+				11 = "org.apache.dubbo.config.spring.beans.factory.annotation.DubboConfigBindingBeanPostProcessor#0"
+				12 = "org.apache.dubbo.config.spring.beans.factory.annotation.DubboConfigBindingBeanPostProcessor#1"
+				13 = "org.apache.dubbo.config.spring.beans.factory.annotation.DubboConfigBindingBeanPostProcessor#2"
+				14 = "org.apache.dubbo.config.spring.beans.factory.annotation.DubboConfigBindingBeanPostProcessor#3"
+				15 = "org.apache.dubbo.config.spring.beans.factory.annotation.DubboConfigBindingBeanPostProcessor#4"
+				16 = "com.ctrip.framework.apollo.spring.annotation.ApolloAnnotationProcessor"
+				17 = "com.ctrip.framework.apollo.spring.annotation.SpringValueProcessor"
+				18 = "com.ctrip.framework.apollo.spring.annotation.ApolloJsonValueProcessor"
+				19 = "meterRegistryPostProcessor"
+				20 = "persistenceExceptionTranslationPostProcessor"
+				21 = "projectingArgumentResolverBeanPostProcessor"
+
+				按照priorityOrder order no order 排序
+				 */
 				registerBeanPostProcessors(beanFactory);
 
 				// Initialize message source for this context.
@@ -609,7 +655,27 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 				onRefresh();
 
 				// Check for listener beans and register them.
-				// 注册相关监听器到消息【发布者】
+				// 注册相关监听器到消息Multicaster【发布者】
+				/*
+				0 = {ConditionEvaluationReportLoggingListener$ConditionEvaluationReportListener@9988}
+				1 = {ServerPortInfoApplicationContextInitializer@9998}
+				2 = {ConfigFileApplicationListener@10003}
+				3 = {AnsiOutputApplicationListener@10004}
+				4 = {LoggingApplicationListener@10005}
+				5 = {WelcomeLogoApplicationListener@10006}
+				6 = {BackgroundPreinitializer@10007}
+				7 = {ClasspathLoggingApplicationListener@10008}
+				8 = {DelegatingApplicationListener@10009}
+				9 = {ParentContextCloserApplicationListener@10010}
+				10 = {OverrideDubboConfigApplicationListener@10011}
+				11 = {AwaitingNonWebApplicationListener@10012}
+				12 = {ClearCachesApplicationListener@10013}
+				13 = {FileEncodingApplicationListener@10014}
+				14 = {LiquibaseServiceLocatorApplicationListener@10015}
+				15 = {SharedMetadataReaderFactoryContextInitializer$SharedMetadataReaderFactoryBean@10016}
+				16 = {ReferenceAnnotationBeanPostProcessor@10017}
+				17 = {DataSourceInitializerInvoker@10018}
+				 */
 				registerListeners();
 
 				// Instantiate all remaining (non-lazy-init) singletons.
@@ -671,6 +737,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 		}
 
 		// Initialize any placeholder property sources in the context environment.
+		// springboot 启动采用GenericWebApplicationContext 完成相关配置的加载
 		initPropertySources();
 
 		// Validate that all properties marked as required are resolvable:
@@ -679,6 +746,24 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 
 		// Store pre-refresh ApplicationListeners...
 		if (this.earlyApplicationListeners == null) {
+			/*
+			0 = {ConditionEvaluationReportLoggingListener$ConditionEvaluationReportListener@5135}
+			1 = {ServerPortInfoApplicationContextInitializer@5136}
+			2 = {ConfigFileApplicationListener@5137}
+			3 = {AnsiOutputApplicationListener@5138}
+			4 = {LoggingApplicationListener@5139}
+			5 = {WelcomeLogoApplicationListener@5140}
+			6 = {BackgroundPreinitializer@5141}
+			7 = {ClasspathLoggingApplicationListener@5142}
+			8 = {DelegatingApplicationListener@5143}
+			9 = {ParentContextCloserApplicationListener@5144}
+			10 = {OverrideDubboConfigApplicationListener@5145}
+			11 = {AwaitingNonWebApplicationListener@5146}
+			12 = {ClearCachesApplicationListener@5147}
+			13 = {FileEncodingApplicationListener@5148}
+			14 = {LiquibaseServiceLocatorApplicationListener@5149}
+
+			 */
 			this.earlyApplicationListeners = new LinkedHashSet<>(this.applicationListeners);
 		}
 		else {
@@ -708,6 +793,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 	 * @see #getBeanFactory()
 	 */
 	protected ConfigurableListableBeanFactory obtainFreshBeanFactory() {
+		// 启动重置beanFactory
 		refreshBeanFactory();
 		ConfigurableListableBeanFactory beanFactory = getBeanFactory();
 		if (logger.isDebugEnabled()) {
@@ -744,6 +830,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 
 		// BeanFactory interface not registered as resolvable type in a plain factory.
 		// MessageSource registered (and found for autowiring) as a bean.
+		// 当容器中需要注入相关类型的时候,直接采用这里设置的对象
 		beanFactory.registerResolvableDependency(BeanFactory.class, beanFactory);
 		beanFactory.registerResolvableDependency(ResourceLoader.class, this);
 		beanFactory.registerResolvableDependency(ApplicationEventPublisher.class, this);
@@ -754,6 +841,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 		beanFactory.addBeanPostProcessor(new ApplicationListenerDetector(this));
 
 		// 默认这里不包含LOAD_TIME_WEAVER_BEAN_NAME  所以LoadTimeWeaverAwareProcessor默认不注册
+		// 这个东西的作用类似于aop 都是为了完成切面增强  但LoadTimeWeaver【类加载时织入】是通过编译时增强
 		// Detect a LoadTimeWeaver and prepare for weaving, if found.
 		if (beanFactory.containsBean(LOAD_TIME_WEAVER_BEAN_NAME)) {
 			beanFactory.addBeanPostProcessor(new LoadTimeWeaverAwareProcessor(beanFactory));
@@ -837,6 +925,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 		}
 		else {
 			// Use empty MessageSource to be able to accept getMessage calls.
+			// 一般走这里
 			DelegatingMessageSource dms = new DelegatingMessageSource();
 			dms.setParentMessageSource(getInternalParentMessageSource());
 			this.messageSource = dms;

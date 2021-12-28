@@ -275,8 +275,14 @@ public class ClassPathBeanDefinitionScanner extends ClassPathScanningCandidateCo
 		// 遍历扫描包
 		for (String basePackage : basePackages) {
 			// asm实现BD生成 【asm可以直接操作字节码】  获取所有符合条件的bd(扫描包下的所有class 转换成bd)
+			/*
+			  流文件转换成资源 资源转换从class
+			  class根据includefilter等因素判读是不会是候选者
+			  添加所有的候选者到候选者集合
+			 */
 			Set<BeanDefinition> candidates = findCandidateComponents(basePackage);
 			for (BeanDefinition candidate : candidates) {
+				// 设置bd创建的实例的生命周期作用域 会话级别还是请求级别还是单例还是原型等 同时判断是否需要代理
 				ScopeMetadata scopeMetadata = this.scopeMetadataResolver.resolveScopeMetadata(candidate);
 				candidate.setScope(scopeMetadata.getScopeName());
 				String beanName = this.beanNameGenerator.generateBeanName(candidate, this.registry);
@@ -291,6 +297,7 @@ public class ClassPathBeanDefinitionScanner extends ClassPathScanningCandidateCo
 				}
 				if (checkCandidate(beanName, candidate)) {
 					BeanDefinitionHolder definitionHolder = new BeanDefinitionHolder(candidate, beanName);
+					// 根据scopeProxyMode 判断生产ProxyBD还是直接返回原来的BD
 					definitionHolder =
 							AnnotationConfigUtils.applyScopedProxyMode(scopeMetadata, definitionHolder, this.registry);
 					beanDefinitions.add(definitionHolder);

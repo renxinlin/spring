@@ -740,6 +740,7 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 				if (isFactoryBean(beanName)) {
 					// faactoryBean 名+&
 					Object bean = getBean(FACTORY_BEAN_PREFIX + beanName);
+					// 获取工厂bean的时候顺便判断下要不要饥饿加载 如果需要的话 则加载工厂bean生产的bean实例
 					if (bean instanceof FactoryBean) {
 						final FactoryBean<?> factory = (FactoryBean<?>) bean;
 						boolean isEagerInit;
@@ -752,6 +753,8 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 							isEagerInit = (factory instanceof SmartFactoryBean &&
 									((SmartFactoryBean<?>) factory).isEagerInit());
 						}
+
+						// 是工厂bean并且允许饥饿加载 则直接加载工厂bean需要生产的bean
 						if (isEagerInit) {
 							// 默认是饥饿加载
 							getBean(beanName);
@@ -759,6 +762,7 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 					}
 				}
 				else {
+					// 不是工厂bean则会直接加载
 					getBean(beanName);
 				}
 			}

@@ -250,8 +250,8 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 	protected <T> T doGetBean(final String name, @Nullable final Class<T> requiredType,
 			@Nullable final Object[] args, boolean typeCheckOnly) throws BeansException {
 		/**
-		 * 主要是处理&beanName 为beanName
-		 * 别名处理
+		 * 主要是处理&beanName 为beanName[可能是一个别名]
+		 * 别名转成beanname
 		 */
 		final String beanName = transformedBeanName(name);
 		Object bean;
@@ -262,7 +262,28 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 		 * 判断这个对象是否被实例化ok,[一般都是null]【不为bull的情况如下】
 		 */
 		// Eagerly check singleton cache for manually registered singletons.
-		// 认真检查单例缓存是否有手动注册的单例 getSingleton(beanName,allowEarlyReference);
+		// 先从以及缓存中  第一次是创建  此时获取到的为null
+		/*
+
+
+		protected Object getSingleton(String beanName, boolean allowEarlyReference) {
+		Object singletonObject = this.singletonObjects.get(beanName);
+		if (singletonObject == null && isSingletonCurrentlyInCreation(beanName)) {
+			synchronized (this.singletonObjects) {
+				singletonObject = this.earlySingletonObjects.get(beanName);
+				if (singletonObject == null && allowEarlyReference) {
+					ObjectFactory<?> singletonFactory = this.singletonFactories.get(beanName);
+					if (singletonFactory != null) {
+						singletonObject = singletonFactory.getObject();
+						this.earlySingletonObjects.put(beanName, singletonObject);
+						this.singletonFactories.remove(beanName);
+					}
+				}
+			}
+		}
+		return singletonObject;
+	}
+		 */
 		Object sharedInstance = getSingleton(beanName);
 		//
 		if (sharedInstance != null && args == null) {
@@ -293,6 +314,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 			}
 
 			// Check if bean definition exists in this factory.
+			// 判断当前容器是否存在 不存在则父容器是否存在【递归】
 			BeanFactory parentBeanFactory = getParentBeanFactory();
 			if (parentBeanFactory != null && !containsBeanDefinition(beanName)) {
 				// Not found -> check parent.
@@ -1158,6 +1180,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 	 * @return the transformed bean name
 	 */
 	protected String transformedBeanName(String name) {
+		// 将&factorybeanname转成 bean name  [此时可能是一个别名] 在通过org.springframework.core.SimpleAliasRegistry#aliasMap 别名映射map将别名递归转成真正的bean名称
 		return canonicalName(BeanFactoryUtils.transformedBeanName(name));
 	}
 

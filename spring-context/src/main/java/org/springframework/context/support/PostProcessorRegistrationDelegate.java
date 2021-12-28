@@ -58,7 +58,20 @@ final class PostProcessorRegistrationDelegate {
 	 *                              		beanFactoryPostProcessors bean定义注册之后bean实例化之前
 	 *                              		beanDefinitionRegistryPostProcessors
 	 *                                  <p/>
+	 * beanDefinitionRegistryPostProcessors
+	 * 具有   PriorityOrdered的先执行
+	 * 具有   Ordered的在执行
+	 * 执行普通的
 	 *
+	 * 执行方法传入的  beanDefinitionRegistryPostProcessorsB的postProcessBeanFactory
+	 * 执行方法参数传入的  beanFactoryPostProcessorsB的postProcessBeanFactory
+	 *
+	 *
+	 * ------------------------------------------------------------
+	 * `beanFactoryPostProcessor
+	 * 具有   PriorityOrdered的先执行
+	 * 具有   Ordered的在执行
+	 * 执行普通的
 	 */
 	public static void invokeBeanFactoryPostProcessors(
 			ConfigurableListableBeanFactory beanFactory, List<BeanFactoryPostProcessor> beanFactoryPostProcessors) {
@@ -101,7 +114,7 @@ final class PostProcessorRegistrationDelegate {
 					processedBeans.add(ppName);
 				}
 			}
-			// 只有一个ConfigurationClassPostProcessor 排序可以无
+			// Step-1： 只有一个ConfigurationClassPostProcessor 完成springboot BD加载
 			sortPostProcessors(currentRegistryProcessors, beanFactory);
 			registryProcessors.addAll(currentRegistryProcessors);
 			// 调用ConfigurationClassPostProcessor postProcessBeanDefinitionRegistry
@@ -112,6 +125,7 @@ final class PostProcessorRegistrationDelegate {
 			currentRegistryProcessors.clear();
 
 			// Next, invoke the BeanDefinitionRegistryPostProcessors that implement Ordered.
+			// 如果processedBeans已经处理过 则无需处理 这里区分上面的排序[PriorityOrdered优先执行 其次执行Ordered排序]
 			postProcessorNames = beanFactory.getBeanNamesForType(BeanDefinitionRegistryPostProcessor.class, true, false);
 			for (String ppName : postProcessorNames) {
 				if (!processedBeans.contains(ppName) && beanFactory.isTypeMatch(ppName, Ordered.class)) {
@@ -121,7 +135,7 @@ final class PostProcessorRegistrationDelegate {
 			}
 			sortPostProcessors(currentRegistryProcessors, beanFactory);
 			registryProcessors.addAll(currentRegistryProcessors);
-			// 开启回调执行
+			// 开启回调执行 比如Apollo配置的ConfigPropertySourcesProcessor
 			invokeBeanDefinitionRegistryPostProcessors(currentRegistryProcessors, registry);
 			currentRegistryProcessors.clear();
 
@@ -139,12 +153,21 @@ final class PostProcessorRegistrationDelegate {
 				}
 				sortPostProcessors(currentRegistryProcessors, beanFactory);
 				registryProcessors.addAll(currentRegistryProcessors);
-				// 处理子类
+				/**
+				 0 = {DubboConfigAliasPostProcessor@6378}
+				 1 = {ServiceAnnotationBeanPostProcessor@6379} 完成dubbo @Service注解扫描
+				 2 = {MapperScannerConfigurer@6380} mybatis接口扫描
+				 3 = {SpringValueDefinitionProcessor@6381} apollo value注入
+				 */
 				invokeBeanDefinitionRegistryPostProcessors(currentRegistryProcessors, registry);
 				currentRegistryProcessors.clear();
 			}
 			// 开启回调执行
 			// Now, invoke the postProcessBeanFactory callback of all processors handled so far.
+			/*
+			先执行所有BDRPP的postProcessBeanFactory
+			后执行所有BDPP的postProcessBeanFactory
+			 */
 			invokeBeanFactoryPostProcessors(registryProcessors, beanFactory);
 			invokeBeanFactoryPostProcessors(regularPostProcessors, beanFactory);
 		}
@@ -180,6 +203,12 @@ final class PostProcessorRegistrationDelegate {
 		}
 
 		// First, invoke the BeanFactoryPostProcessors that implement PriorityOrdered.
+		/*
+			0 = {PropertySourcesProcessor@6874}
+			1 = {PropertySourcesPlaceholderConfigurer@6875}
+			2 = {PropertySourcesPlaceholderConfigurer@6876}
+			3 = {SpringValueProcessor@6877}
+		 */
 		sortPostProcessors(priorityOrderedPostProcessors, beanFactory);
 		invokeBeanFactoryPostProcessors(priorityOrderedPostProcessors, beanFactory);
 
@@ -189,6 +218,7 @@ final class PostProcessorRegistrationDelegate {
 			orderedPostProcessors.add(beanFactory.getBean(postProcessorName, BeanFactoryPostProcessor.class));
 		}
 		sortPostProcessors(orderedPostProcessors, beanFactory);
+		// 暂无
 		invokeBeanFactoryPostProcessors(orderedPostProcessors, beanFactory);
 
 		// Finally, invoke all other BeanFactoryPostProcessors.
@@ -196,6 +226,12 @@ final class PostProcessorRegistrationDelegate {
 		for (String postProcessorName : nonOrderedPostProcessorNames) {
 			nonOrderedPostProcessors.add(beanFactory.getBean(postProcessorName, BeanFactoryPostProcessor.class));
 		}
+		/*
+
+		0 = {EventListenerMethodProcessor@6926}
+		1 = {ConfigurationBeanFactoryMetadata@6927}
+		2 = {ErrorMvcAutoConfiguration$PreserveErrorControllerTargetClassPostProcessor@6928}
+		 */
 		invokeBeanFactoryPostProcessors(nonOrderedPostProcessors, beanFactory);
 
 		// Clear cached merged bean definitions since the post-processors might have

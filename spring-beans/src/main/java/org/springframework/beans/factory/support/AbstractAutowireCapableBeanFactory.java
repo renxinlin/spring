@@ -503,6 +503,8 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			/**同时调用
 			 * InstantiationAwareBeanPostProcessor
 			 *  postProcessBeforeInstantiation postProcessAfterInstantiation
+			 *
+			 *  这里有个拦截 如果InstantiationAwareBeanPostProcessor实现定义了相关bean 则直接走这个流程 不在走
 			 */
 			Object bean = resolveBeforeInstantiation(beanName, mbdToUse);
 			if (bean != null) {
@@ -1134,6 +1136,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 	 */
 	protected BeanWrapper createBeanInstance(String beanName, RootBeanDefinition mbd, @Nullable Object[] args) {
 		// Make sure bean class is actually resolved at this point.
+		// 查找类class 对象确保可以实例化
 		Class<?> beanClass = resolveBeanClass(mbd, beanName);
 
 		if (beanClass != null && !Modifier.isPublic(beanClass.getModifiers()) && !mbd.isNonPublicAccessAllowed()) {
@@ -1375,10 +1378,11 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 				}
 			}
 		}
-
+		// 获取容器在解析bean定义资源时为bd设置的属性值
 		PropertyValues pvs = (mbd.hasPropertyValues() ? mbd.getPropertyValues() : null);
 
 		int resolvedAutowireMode = mbd.getResolvedAutowireMode();
+		// 判断是根据名称注入还是类型注入
 		if (resolvedAutowireMode == AUTOWIRE_BY_NAME || resolvedAutowireMode == AUTOWIRE_BY_TYPE) {
 			MutablePropertyValues newPvs = new MutablePropertyValues(pvs);
 			// Add property values based on autowire by name if applicable.
@@ -1423,6 +1427,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		}
 
 		if (pvs != null) {
+			// 属性注入
 			applyPropertyValues(beanName, mbd, bw, pvs);
 		}
 	}
@@ -1616,6 +1621,11 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 	}
 
 	/**
+	 * （1）属性值类型不需要强制转换时，不需要解析属性值，直接进行依赖注入。
+	 * （2）属性值类型需要进行强制转换时，如对其他对象的引用等，
+	 * 首先需要解析属性值，然后对解析后的属性值进行依赖注入。
+	 * 对属性值的解析是在BeanDefinitionValueResolver类的 resolveValueIfNecessary（）方法中进行的，
+	 * 对属性值的依赖注入是通过 bw.setPropertyValues（）方法实现的。
 	 * Apply the given property values, resolving any runtime references
 	 * to other beans in this bean factory. Must use deep copy, so we
 	 * don't permanently modify this property.
@@ -1641,6 +1651,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			if (mpvs.isConverted()) {
 				// Shortcut: use the pre-converted values as-is.
 				try {
+					// 设置属性值 完成注入 注意这里是真正完成DI的地方 设计单列的循环依赖解决
 					bw.setPropertyValues(mpvs);
 					return;
 				}
@@ -1671,6 +1682,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			else {
 				String propertyName = pv.getName();
 				Object originalValue = pv.getValue();
+				// 对类型进行转换
 				Object resolvedValue = valueResolver.resolveValueIfNecessary(pv, originalValue);
 				Object convertedValue = resolvedValue;
 				boolean convertible = bw.isWritableProperty(propertyName) &&
@@ -1760,7 +1772,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 
 		Object wrappedBean = bean;
 		if (mbd == null || !mbd.isSynthetic()) {
-			// PostProcessorsBefore 第七次執行后置处理器 比如代理类
+			// PostProcessorsBefore 第七次執行后置处理器 比如代理类 aop实现AbstractAutoProxyCreator
 			wrappedBean = applyBeanPostProcessorsBeforeInitialization(wrappedBean, beanName);
 		}
 
