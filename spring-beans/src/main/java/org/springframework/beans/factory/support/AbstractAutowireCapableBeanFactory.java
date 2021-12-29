@@ -670,6 +670,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 					String[] dependentBeans = getDependentBeans(beanName);
 					Set<String> actualDependentBeans = new LinkedHashSet<>(dependentBeans.length);
 					for (String dependentBean : dependentBeans) {
+						// 完成 二级缓存转一级缓存  三级缓存转一级缓存的逻辑
 						if (!removeSingletonIfCreatedForTypeCheckOnly(dependentBean)) {
 							actualDependentBeans.add(dependentBean);
 						}
@@ -1205,7 +1206,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		if (mbd.getFactoryMethodName() != null) {
 			/*
 				静态工厂和实例化工厂区别  class录入的是工厂类 而不是bean name实际对应的类  实例化工厂还需要 设置一个实例化工厂bean 如: hi13Factory
-				
+
 				### 静态工厂
 				<!--  class 表示工厂bean的类型  但bean的类型是getHi11返回的类型-->
 				<bean id="hi11" class="com.mockuai.oms.admin.Hi12StaticFactory" factory-method="getHi11" />
