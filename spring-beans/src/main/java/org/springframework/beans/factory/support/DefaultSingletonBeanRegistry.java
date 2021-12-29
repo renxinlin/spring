@@ -71,15 +71,35 @@ import org.springframework.util.StringUtils;
 public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements SingletonBeanRegistry {
 
 	/** Cache of singleton objects: bean name --> bean instance */
-	// bean对象池
+	// bean对象池 完成了aop和ioc
 	private final Map<String, Object> singletonObjects = new ConcurrentHashMap<>(256);
 
 	/** Cache of singleton factories: bean name --> ObjectFactory */
 	// 三级缓存用于创建对象的工厂 每次都会通过getObject获取新的对象  可以获取代理对象或者非代理对象
+	/*
+		getObject会完成对所有SmartInstantiationAwareBeanPostProcessor.getEarlyBeanReference
+		目前主要功能是AbstractAutoProxyCreator#getEarlyBeanReference完成aop代理包装
+
+	addSingletonFactory(beanName, () -> getEarlyBeanReference(beanName, mbd, bean));
+	protected Object getEarlyBeanReference(String beanName, RootBeanDefinition mbd, Object bean) {
+		Object exposedObject = bean;
+		if (!mbd.isSynthetic() && hasInstantiationAwareBeanPostProcessors()) {
+			for (BeanPostProcessor bp : getBeanPostProcessors()) {
+				if (bp instanceof SmartInstantiationAwareBeanPostProcessor) {
+					SmartInstantiationAwareBeanPostProcessor ibp = (SmartInstantiationAwareBeanPostProcessor) bp;
+					// 解决循环依赖
+					exposedObject = ibp.getEarlyBeanReference(exposedObject, beanName);
+				}
+			}
+		}
+		return exposedObject;
+	}
+
+	 */
 	private final Map<String, ObjectFactory<?>> singletonFactories = new HashMap<>(16);
 
 	/** Cache of early singleton objects: bean name --> bean instance */
-	// 二级缓存用于存放 创建出来的半成品bean
+	// 二级缓存用于存放 创建出来的半成品bean 此时完成了aop等getEarlyBeanReference BPP包装  但是还没有完成ioc
 	private final Map<String, Object> earlySingletonObjects = new HashMap<>(16);
 
 	/** Set of registered singletons, containing the bean names in registration order */
@@ -157,7 +177,7 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 			if (!this.singletonObjects.containsKey(beanName)) {
 				//
 				this.singletonFactories.put(beanName, singletonFactory); //
-				// 过渡对象: 创建好但是没有初始化相关属性
+				// 过渡对象: 创建好但是没有初始化相关属性 但是已经完成了bean的相关包装
 				this.earlySingletonObjects.remove(beanName);
 
 				this.registeredSingletons.add(beanName);
