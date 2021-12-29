@@ -166,6 +166,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 	private SecurityContextProvider securityContextProvider;
 
 	/** Map from bean name to merged RootBeanDefinition */
+	// 缓存已经merge过的beanDefinition 用于第一次加载后,往后直接读取
 	private final Map<String, RootBeanDefinition> mergedBeanDefinitions = new ConcurrentHashMap<>(256);
 
 	/** Names of beans that have already been created at least once */
@@ -300,6 +301,8 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 			 * 如果sharedInstance是bean则获取
 			 * 如果是factoryBean则获取getObject
 			 * 如果获取f-bean本身则直接获取
+			 * name是我们真实要获取的
+			 * beanName 是转换后的比如&factorybeanName转换成factorybeanName
 			 */
 			bean = getObjectForBeanInstance(sharedInstance, name, beanName, null);
 		}
@@ -340,6 +343,31 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 
 			// 核心代码
 			try {
+				/*
+				    ###	mergedLocalBeanDefinition是一个逻辑性的BD定义 主要为了解决以下场景
+					@Data                                            		@Data
+					public class Hi6 {                               		public class Hi5 {
+						private ConfigCUser configCUser;             			private String user;
+						private Long id;                             			private ConfigCUser configCUser;
+						private String addr;//地址                     			private Long id;
+						private String idCard;//身份证号	            			public Hi5(){
+						public Hi6(){                                				System.out.println("Hi4被ioc 干了");
+							System.out.println("Hi4被ioc 干了");        		    }
+						}                                            		}
+					}
+
+
+					<bean id="hi6" class="com.mockuai.oms.admin.Hi6" parent="hi5">
+						<property name="addr" value="1"></property>
+						<property name="idCard" value="1"></property>
+						<property name="configCUser" ref="configCUser"></property>
+					</bean>
+
+					<bean id="hi5" class="com.mockuai.oms.admin.Hi5">
+						<property name="id" value="12"></property>
+					</bean>
+				    ### 此时获取到的hi6 的id为12  如果hi6配置了自己的id则注入自己的id值
+			 */
 				final RootBeanDefinition mbd = getMergedLocalBeanDefinition(beanName);
 				checkMergedBeanDefinition(mbd, beanName, args);
 
@@ -1309,6 +1337,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 			}
 
 			if (mbd == null) {
+				// 如果当前bd没有父类bd则直接返回 不在完成父子合并操作
 				if (bd.getParentName() == null) {
 					// Use copy of given root bean definition.
 					if (bd instanceof RootBeanDefinition) {
@@ -1324,6 +1353,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 					try {
 						String parentBeanName = transformedBeanName(bd.getParentName());
 						if (!beanName.equals(parentBeanName)) {
+							// 获取MergedBeanDefinition采用递归方式 直到beanname和parentBeanName相同退出递归
 							pbd = getMergedBeanDefinition(parentBeanName);
 						}
 						else {
@@ -1344,6 +1374,8 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 					}
 					// Deep copy with overridden values.
 					mbd = new RootBeanDefinition(pbd);
+					// 核心 执行真正合并的地方 先设置pbd parentBeanDefinition的信息 再用子BD的信息覆盖一遍
+					// 由此可以得出结论: 子实例对象的属性会覆盖parent的属性值 [两个类之间可以无任何继承关系]
 					mbd.overrideFrom(bd);
 				}
 
@@ -1681,6 +1713,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 			if (beanInstance instanceof NullBean) {
 				return beanInstance;
 			}
+			// 如果你配置了一个bean 没有实现FactoryBean 你却用&加beanname调用 这样可能会把spring搞炸 这里check确保安全
 			if (!(beanInstance instanceof FactoryBean)) {
 				throw new BeanIsNotAFactoryException(beanName, beanInstance.getClass());
 			}
@@ -1689,10 +1722,12 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 		// Now we have the bean instance, which may be a normal bean or a FactoryBean.
 		// If it's a FactoryBean, we use it to create a bean instance, unless the
 		// caller actually wants a reference to the factory.
+		// 判断有没有【&】有说明要获取factorybean 本身
 		if (!(beanInstance instanceof FactoryBean) || BeanFactoryUtils.isFactoryDereference(name)) {
 			return beanInstance;
 		}
 
+		// 看看缓存有没有
 		Object object = null;
 		if (mbd == null) {
 			object = getCachedObjectForFactoryBean(beanName);
@@ -1705,6 +1740,8 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 				mbd = getMergedLocalBeanDefinition(beanName);
 			}
 			boolean synthetic = (mbd != null && mbd.isSynthetic());
+			// 调用factorybean的getObject方法 完成beanPostProcessor后置处理
+			// todo  注意@autowired并没有处理
 			object = getObjectFromFactoryBean(factory, beanName, !synthetic);
 		}
 		return object;

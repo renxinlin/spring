@@ -504,7 +504,18 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			 * InstantiationAwareBeanPostProcessor
 			 *  postProcessBeforeInstantiation postProcessAfterInstantiation
 			 *
-			 *  这里有个拦截 如果InstantiationAwareBeanPostProcessor实现定义了相关bean 则直接走这个流程 不在走
+			 *  这里有个拦截 如果InstantiationAwareBeanPostProcessor实现定义了相关bean 则直接走这个流程 不在走doCreateBean
+			 *  从而实现一些自定义
+			 * 	ConfigurationClassPostProcessor$ImportAwareBeanPostProcessor始终返回null
+			 * 	CommonAnnotationBeanPostProcessor 始终返回null
+			 * 	ReferenceAnnotationBeanPostProcessor 始终返回null
+			 * 	AutowiredAnnotationBeanPostProcessor 始终返回null
+			 * 	AnnotationAwareAspectJAutoProxyCreator
+			 *
+			 * 	用法1
+			 * 	// 针对自定义的TargetSourceCreator 做拦截处理 参见https://blog.csdn.net/qq_39002724/article/details/112970421
+			 * 	用法2 自定义Bpp继承实例化AwareBpp完成相关拦截
+			 * 	注意实例化Instantiation和初始化Initialization的区别 实例化可以拦截doCreateBean 初始化走正常的bean生命周期
 			 */
 			Object bean = resolveBeforeInstantiation(beanName, mbdToUse);
 			if (bean != null) {
@@ -587,6 +598,13 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			if (!mbd.postProcessed) {
 				try {
 					// 第三次调用后置处理器 MergedBeanDefinitionPostProcessor
+					/*
+						CommonAnnotationBeanPostProcessor
+						ReferenceAnnotationBeanPostProcessor
+						AutowiredAnnotationBeanPostProcessor
+						ApplicationListenerDetector  设置singletonNames集合singletonNames.put(beanName, beanDefinition.isSingleton());
+						postProcessMergedBeanDefinition
+					 */
 					applyMergedBeanDefinitionPostProcessors(mbd, beanType, beanName);
 				}
 				catch (Throwable ex) {
@@ -608,6 +626,11 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			}
 			//  第四次调用后置处理器 SmartInstantiationAwareBeanPostProcessor[getEarlyBeanReference]
 			// 得到还没有形成bean的对象【创建的对象还不是bean，还没有加入spring容器】从而解决循环依赖问题
+			/*
+			 匿名objectFactory的功能主要如下:
+			      当objectFactory调用getObject时 调用this.getEarlyBeanReference从而
+			 	  获取所有的SmartInstantiationAwareBeanPostProcessor 返回由BPP集合getEarlyBeanReference装饰的对象
+			 */
 			addSingletonFactory(beanName, () -> getEarlyBeanReference(beanName, mbd, bean));
 		}
 
@@ -1143,15 +1166,56 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			throw new BeanCreationException(mbd.getResourceDescription(), beanName,
 					"Bean class isn't public, and non-public access not allowed: " + beanClass.getName());
 		}
+		/*
 
+
+			public class SupplierBean {
+				private static User createUser(){
+					return new User("小薇呀");
+				}
+				static class User{
+					private String name;
+					public User(String name) {
+						this.name = name;
+					}
+					public String getName() {
+						return name;
+					}
+					@PostConstruct
+					public void init(){
+						System.out.println("user 初始化.....");
+					}
+				}
+			}
+
+			GenericBeanDefinition beanDefinition = new GenericBeanDefinition();
+			beanDefinition.setBeanClass(User.class);
+			beanDefinition.setInstanceSupplier(SupplierBean::createUser);
+
+			// 如此初始化之后 则会采用这里的Supplier 创建对象
+			// 目的: 避免下面采用反射调用 从而提高相关性能
+
+		 */
 		Supplier<?> instanceSupplier = mbd.getInstanceSupplier();
 		if (instanceSupplier != null) {
-			// 已经存在
+			// 已经存在Supplier
 			return obtainFromSupplier(instanceSupplier, beanName);
 		}
 
 		if (mbd.getFactoryMethodName() != null) {
-			// factoryBean 构造
+			/*
+				静态工厂和实例化工厂区别  class录入的是工厂类 而不是bean name实际对应的类  实例化工厂还需要 设置一个实例化工厂bean 如: hi13Factory
+				
+				### 静态工厂
+				<!--  class 表示工厂bean的类型  但bean的类型是getHi11返回的类型-->
+				<bean id="hi11" class="com.mockuai.oms.admin.Hi12StaticFactory" factory-method="getHi11" />
+
+				### 实例化工厂
+				<bean id="hi13Factory" class="com.mockuai.oms.admin.Hi13Factory"/>
+				<!--    此时class属性可以省略  -->
+				<bean id="hi11_1"  factory-bean="hi13Factory" factory-method="getHi11_1" />
+			 */
+			// 针对例如xml存在如下配置进行初始化
 			return instantiateUsingFactoryMethod(beanName, mbd, args);
 		}
 
@@ -1366,10 +1430,12 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			for (BeanPostProcessor bp : getBeanPostProcessors()) {
 				if (bp instanceof InstantiationAwareBeanPostProcessor) {
 					/**
-					 *  第五次调用后置处理器	完成自动装配
-
-					 * AutowiredAnnotationBeanPostProcessor 處理@Autowired
-					 * CommonAnnotationBeanPostProcessor 負責@Resource |  @PostConstruct @PreDestroy(交給父类处理)
+					 *  第五次调用后置处理器	 如果返回false则终止 DI注入
+					 *  -----------------------
+					 *  我理解这里可能是说: 如果你定义一个InstantiationAwareBeanPostProcessor
+					 *  在postProcessAfterInstantiation里完成了DI 并返回false 则完成自定义的DI过程 或者直接返回false 说明你期望终止特定bean的注入过程
+					 *  -----------------------
+					 postProcessAfterInstantiation表示实例化之后 Initialization表示初始化之后 实例化之后未加入bean容器管理 初始化之后已经加入singletonObjects被bean容器管理
 					 */
 					InstantiationAwareBeanPostProcessor ibp = (InstantiationAwareBeanPostProcessor) bp;
 					if (!ibp.postProcessAfterInstantiation(bw.getWrappedInstance(), beanName)) {
@@ -1380,9 +1446,12 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		}
 		// 获取容器在解析bean定义资源时为bd设置的属性值
 		PropertyValues pvs = (mbd.hasPropertyValues() ? mbd.getPropertyValues() : null);
-
+		/*
+		 * AutowiredAnnotationBeanPostProcessor 處理@Autowired
+		 * CommonAnnotationBeanPostProcessor 負責@Resource |  @PostConstruct @PreDestroy(交給父类处理)
+		 */
 		int resolvedAutowireMode = mbd.getResolvedAutowireMode();
-		// 判断是根据名称注入还是类型注入
+		// 判断是根据名称注入还是类型注入 =如果是默认则跳过这里
 		if (resolvedAutowireMode == AUTOWIRE_BY_NAME || resolvedAutowireMode == AUTOWIRE_BY_TYPE) {
 			MutablePropertyValues newPvs = new MutablePropertyValues(pvs);
 			// Add property values based on autowire by name if applicable.
@@ -1397,14 +1466,16 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		}
 
 		boolean hasInstAwareBpps = hasInstantiationAwareBeanPostProcessors();
-		// 深度检查
+		// 依赖检查
 		boolean needsDepCheck = (mbd.getDependencyCheck() != AbstractBeanDefinition.DEPENDENCY_CHECK_NONE);
 
+		// 这里一定会有实例化的Bpp 这块的主要作用是完成PropertyValue的注入
 		if (hasInstAwareBpps || needsDepCheck) {
 			if (pvs == null) {
+				// 返回bd的属性值
 				pvs = mbd.getPropertyValues();
 			}
-			// 获取所有getter/setter对应的属性值
+			// 获取所有getter/setter对应的属性值 不仅仅是@autowired等spring注解的属性而是这个bean的所有属性值 比如通用的getClass对应的class属性值
 			PropertyDescriptor[] filteredPds = filterPropertyDescriptorsForDependencyCheck(bw, mbd.allowCaching);
 			if (hasInstAwareBpps) {
 				for (BeanPostProcessor bp : getBeanPostProcessors()) {
@@ -1413,7 +1484,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 					if (bp instanceof InstantiationAwareBeanPostProcessor) {
 						// 判斷设置属性的类ok
 						InstantiationAwareBeanPostProcessor ibp = (InstantiationAwareBeanPostProcessor) bp;
-						// 屬性依赖AutowiredAnnotationBeanPostProcessor去处理【现在一般都是@Autowired】
+						// 屬性依赖 AutowiredAnnotationBeanPostProcessor去处理完成依赖注入【现在一般都是@Autowired】
 						pvs = ibp.postProcessPropertyValues(pvs, filteredPds, bw.getWrappedInstance(), beanName);
 						if (pvs == null) {
 							return;
@@ -1421,13 +1492,15 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 					}
 				}
 			}
+
+			// 	// 是否进行依赖检查
 			if (needsDepCheck) {
 				checkDependencies(beanName, mbd, filteredPds, pvs);
 			}
 		}
 
 		if (pvs != null) {
-			// 属性注入
+			// 属性DI注入
 			applyPropertyValues(beanName, mbd, bw, pvs);
 		}
 	}

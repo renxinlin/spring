@@ -735,12 +735,16 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 
 		// Trigger initialization of all non-lazy singleton beans...
 		for (String beanName : beanNames) {
+			/**
+
+			 */
 			RootBeanDefinition bd = getMergedLocalBeanDefinition(beanName);
 			if (!bd.isAbstract() && bd.isSingleton() && !bd.isLazyInit()) {
 				if (isFactoryBean(beanName)) {
 					// faactoryBean 名+&
 					Object bean = getBean(FACTORY_BEAN_PREFIX + beanName);
 					// 获取工厂bean的时候顺便判断下要不要饥饿加载 如果需要的话 则加载工厂bean生产的bean实例
+					// 注意此时工厂bean本身已经存储于bean工厂
 					if (bean instanceof FactoryBean) {
 						final FactoryBean<?> factory = (FactoryBean<?>) bean;
 						boolean isEagerInit;
@@ -756,7 +760,7 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 
 						// 是工厂bean并且允许饥饿加载 则直接加载工厂bean需要生产的bean
 						if (isEagerInit) {
-							// 默认是饥饿加载
+							// 如果继承SmartFactoryBean并且开启了饥饿加载 调用org.springframework.beans.factory.support.AbstractBeanFactory#getBean(String)
 							getBean(beanName);
 						}
 					}
