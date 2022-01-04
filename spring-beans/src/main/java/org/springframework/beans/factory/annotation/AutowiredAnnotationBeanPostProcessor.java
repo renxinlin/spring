@@ -233,9 +233,17 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 	}
 
 	/**
-	 * 这个构造方法的选择有点骚
 	 * 简单的说就是一套选择机制选择一个构造函数用于构建Object
-	 * 但是如果找到多个就返回null 应为他也很懵逼 交给后续的那个贼复杂的【sortConstructor 构造之后的那个构造创建处理  public优先 参数数量大的优先】
+	 * 但是如果找到多个就返回null 因为无法抉择 交给后续处理autowireConstructor方法处理【sortConstructor 构造之后的那个构造创建处理  public优先 参数数量大的优先】
+	 *
+	 *
+	 *
+	 * 选择逻辑
+	 * 1 autowired注解request为true的构造函数有多个,报错
+	 * 2 返回autowired注解request为true的构造函数
+	 * 3 只有一个构造函数 返回该构造函数
+	 * 4 存在多个构造函数 返回null【其无法决定】
+	 *
 	 * @param beanClass
 	 * @param beanName
 	 * @return
@@ -281,6 +289,7 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 				if (candidateConstructors == null) {
 					Constructor<?>[] rawCandidates;
 					try {
+						// step-1: 获取所有的构造方法作为原始的构造器集合
 						rawCandidates = beanClass.getDeclaredConstructors();
 					}
 					catch (Throwable ex) {
@@ -289,14 +298,15 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 								"] from ClassLoader [" + beanClass.getClassLoader() + "] failed", ex);
 					}
 					List<Constructor<?>> candidates = new ArrayList<>(rawCandidates.length);
-					//
+					// @Authwired(required = true)的构造函数
 					Constructor<?> requiredConstructor = null;
-					//
+					// 无参构造函数
 					Constructor<?> defaultConstructor = null;
 					// 采用Kotlin建立的构造函数  这种已经不是java语言了;一般primaryConstructor为null 自行了解Kotlin 相关{现在的JVM支持的不只java一种语言}
 					Constructor<?> primaryConstructor = BeanUtils.findPrimaryConstructor(beanClass);
 					// 非混合构造函数
 					int nonSyntheticConstructors = 0;
+					// step-2: 循环处理所有的构造方法
 					for (Constructor<?> candidate : rawCandidates) {
 						//  判断当前的构造方法,属性,类,方法是不是混合类
 						if (!candidate.isSynthetic()) { //
@@ -305,8 +315,9 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 						else if (primaryConstructor != null) {
 							continue;
 						}
-						// 找 @Value 和@Autowired  AnnotationAttribute是这些注解的属性和值
+						//step-3 找 @Value 和@Autowired @Inject 标注的构造方法 [ AnnotationAttribute是这些注解的属性和值]
 						AnnotationAttributes ann = findAutowiredAnnotation(candidate);
+						// 找不到找下父类的构造方法
 						if (ann == null) {
 							Class<?> userClass = ClassUtils.getUserClass(beanClass);
 							if (userClass != beanClass) {
@@ -320,6 +331,8 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 								}
 							}
 						}
+
+						// step: 3-1 找到了并且注解的required属性为true加入候选者集合
 						if (ann != null) {
 							if (requiredConstructor != null) {
 								throw new BeanCreationException(beanName,
@@ -329,6 +342,7 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 							}
 							boolean required = determineRequiredStatus(ann);
 							if (required) {
+								// 如果存在多个候选者 比如两个@autowired（request=true) 标注的构造方法 则会抛出异常
 								if (!candidates.isEmpty()) {
 									throw new BeanCreationException(beanName,
 											"Invalid autowire-marked constructors: " + candidates +
@@ -340,9 +354,12 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 							candidates.add(candidate);
 						}
 						else if (candidate.getParameterCount() == 0) {
+							// step-4 没有注解并且参数为0 使用无参构造兜底
 							defaultConstructor = candidate;
 						}
 					}
+
+					// candidates只会有一个 因为两个以及更多在寻找的过程中就会抛出异常
 					if (!candidates.isEmpty()) {
 						// Add default constructor to list of optional constructors, as fallback.
 						if (requiredConstructor == null) {
@@ -359,22 +376,27 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 						candidateConstructors = candidates.toArray(new Constructor<?>[0]);
 					}
 					else if (rawCandidates.length == 1 && rawCandidates[0].getParameterCount() > 0) {
+//						没有@autowired(request=true)的注解标注 且一共只有一个构造函数  返回该构造函数
 						candidateConstructors = new Constructor<?>[] {rawCandidates[0]};
 					}
 					else if (nonSyntheticConstructors == 2 && primaryConstructor != null &&
+							// kotlin 平台的逻辑分支不考虑
 							defaultConstructor != null && !primaryConstructor.equals(defaultConstructor)) {
 						candidateConstructors = new Constructor<?>[] {primaryConstructor, defaultConstructor};
 					}
 					else if (nonSyntheticConstructors == 1 && primaryConstructor != null) {
+						// kotlin 平台的逻辑分支不考虑
 						candidateConstructors = new Constructor<?>[] {primaryConstructor};
 					}
 					else {
+//						其他情况一律不加考虑 依赖下游自行决定选择何种构造函数  下游实际通过排序sortConstructor完成多个构造函数的选择
 						candidateConstructors = new Constructor<?>[0];
 					}
 					this.candidateConstructorsCache.put(beanClass, candidateConstructors);
 				}
 			}
 		}
+		// 返回一个说明后面会选择  存在多个这个返回null 交给autowireConstructor方法自行选择
 		return (candidateConstructors.length > 0 ? candidateConstructors : null);
 	}
 
@@ -495,7 +517,7 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 	@Nullable
 	private AnnotationAttributes findAutowiredAnnotation(AccessibleObject ao) {
 		if (ao.getAnnotations().length > 0) {  // autowiring annotations have to be local
-			for (Class<? extends Annotation> type : this.autowiredAnnotationTypes) {
+			for (Class<? extends Annotation> type : this.autowiredAnnotationTypes/* @autowired @value @Inject */) {
 				AnnotationAttributes attributes = AnnotatedElementUtils.getMergedAnnotationAttributes(ao, type);
 				if (attributes != null) {
 					return attributes;

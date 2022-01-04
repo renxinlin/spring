@@ -1220,14 +1220,15 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			return instantiateUsingFactoryMethod(beanName, mbd, args);
 		}
 
-		// Shortcut when re-creating the same bean...
+		// 再次创建的时候期望走缓存
 		boolean resolved = false;
 		boolean autowireNecessary = false;
 		if (args == null) {
 			synchronized (mbd.constructorArgumentLock) {
-				// 如果解析了带参的构造函数
+				// 如果存在可以解析的构造函数
 				if (mbd.resolvedConstructorOrFactoryMethod != null) {
 					resolved = true;
+					// 并且构造函数含参数
 					autowireNecessary = mbd.constructorArgumentsResolved;
 				}
 			}
@@ -1238,14 +1239,12 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 				return autowireConstructor(beanName, mbd, null, null);
 			}
 			else {
-				// 无参构造
+				// 调用无参构造函数
 				return instantiateBean(beanName, mbd);
 			}
 		}
 
-		// Candidate constructors for autowiring?
 
-		// 第二次后置处理器
 		// 后置处理器决定构造注入：也就是说由后置管理器决定选择哪个构造方法
 		Constructor<?>[] ctors = determineConstructorsFromBeanPostProcessors(beanClass, beanName);
 		if (ctors != null || mbd.getResolvedAutowireMode() == AUTOWIRE_CONSTRUCTOR ||

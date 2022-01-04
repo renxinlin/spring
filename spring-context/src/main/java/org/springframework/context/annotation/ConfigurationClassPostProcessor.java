@@ -339,6 +339,7 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 		Set<ConfigurationClass> alreadyParsed = new HashSet<>(configCandidates.size());
 		do {
 			// 这里解析的是ConfigurationClassUtils.checkConfigurationClassCandidate(beanDef, this.metadataReaderFactory)后属性为lite 和full的类
+			// 同时这里解析时只将@Component @named 这类直接可以生成BeanDefinition的完成bd注册 其余的全部作为ConfigurationClass交给ConfigurationClassBeanDefinitionReader处理
 			parser.parse(candidates);
 			parser.validate();
 			// 获取parse处理完毕的import的相关内容准备转换成BD

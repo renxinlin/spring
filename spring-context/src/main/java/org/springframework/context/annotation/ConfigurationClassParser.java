@@ -220,35 +220,34 @@ class ConfigurationClassParser {
 
 
 	protected void processConfigurationClass(ConfigurationClass configClass) throws IOException {
+		// 判断应不应该终止,比如@Conditional注解导致终止
 		if (this.conditionEvaluator.shouldSkip(configClass.getMetadata(), ConfigurationPhase.PARSE_CONFIGURATION)) {
 			return;
 		}
-		// 判断当前类是否被别的类import
-		//
+		// 判断当前类是否被解析过 解析过不在处理
 		ConfigurationClass existingClass = this.configurationClasses.get(configClass);
 		if (existingClass != null) {
 			if (configClass.isImported()) {
 				if (existingClass.isImported()) {
+					// 缓存是否解析信息
 					existingClass.mergeImportedBy(configClass);
 				}
-				// Otherwise ignore new imported config class; existing non-imported class overrides it.
 				return;
 			}
 			else {
-				// Explicit bean definition found, probably replacing an import.
-				// Let's remove the old one and go with the new one.
 				this.configurationClasses.remove(configClass);
 				this.knownSuperclasses.values().removeIf(configClass::equals);
 			}
 		}
 		// 将configClass 转换成 SourceClass
-		// Recursively process the configuration class and its superclass hierarchy.
+		// 递归解析
 		SourceClass sourceClass = asSourceClass(configClass);
 		do {
+			// 如果有父类sourceClass不为空
 			sourceClass = doProcessConfigurationClass(configClass, sourceClass);
 		}
 		while (sourceClass != null);
-		// 这里并没有处理成BD ，import的类处理到这里后期处理成BD
+		// 将所有的configClass都加入 但是将来reader只处理import bean importresource 和 BeanDefinitionsFromRegistrar
 		this.configurationClasses.put(configClass, configClass);
 	}
 

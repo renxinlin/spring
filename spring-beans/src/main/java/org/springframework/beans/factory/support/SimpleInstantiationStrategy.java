@@ -88,8 +88,13 @@ public class SimpleInstantiationStrategy implements InstantiationStrategy {
 			return BeanUtils.instantiateClass(constructorToUse);
 		}
 		else {
-			// bean的方法被覆盖 使用CGLIB实例化bean
-			// Must generate CGLIB subclass.
+			/*
+
+			 bean的方法被覆盖 使用CGLIB实例化bean
+			 主要处理@Lookup和@Replace注解 通过两个拦截器LookupOverrideMethodInterceptor,	ReplaceOverrideMethodInterceptor
+			 完成方法的拦截 从而实现对@Lookup的调用 改从beanfactory.getbean获取
+			 和full lite模式的原理一样
+			 */
 			return instantiateWithMethodInjection(bd, beanName, owner);
 		}
 	}
